@@ -1,0 +1,6 @@
+[submodule "backend"]
+	path = backend
+	url = https://github.com/ALFINKA/todo-list
+[submodule "frontend"]
+	path = frontend
+	url = https://github.com/hutamatr/todo-list

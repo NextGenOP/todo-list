@@ -1,0 +1,65 @@
+# Warning: This docker-compose file is made for development purposes.
+# Using it will build an image from the locally cloned repository.
+# todos is todo-list
+# If you want to use todos in production, see the docker-compose.yml file provided
+
+version: "3.8"
+services:
+  todos-fe:
+    build:
+      context: ../todos-fe
+      dockerfile: docker/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3050:3050"
+    #environment:
+    depends_on:
+      - todolist-db
+      - todos
+
+  todos:
+    build:
+      context: .
+      args:
+          DB_HOST_DATABASE: todolist-db
+          DB_PORT: 5432
+          DB_USER: todolist
+          DB_PASSWORD: todolist
+          DB_NAME: todolist
+      dockerfile: docker/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8050:8050"
+    environment:
+      # Please read the following file for a comprehensive list of all available
+      # configuration options and their associated syntax:
+      NODE_ENV: production
+      DB_HOST_DATABASE: todolist-db
+      DB_PORT: 5432
+      DB_USER: todolist
+      DB_PASSWORD: todolist
+      DB_NAME: todolist
+      JWT_SECRET_KEY: huhuhaha
+        #command: ["echo", "Database is $$DB_HOST_DATABASE"]
+    entrypoint: ./entrypoint.sh
+    depends_on:
+      - todolist-db
+    command: ["CMD-SHELL", "./wait-for-postgres.sh", "todolist-db"]
+
+  todolist-db:
+    image: docker.io/library/postgres:14-alpine
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    volumes:
+      - postgresdata:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: todolist
+      POSTGRES_USER: todolist
+      POSTGRES_PASSWORD: todolist
+    command: echo "PostgreSQL Build"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+
+volumes:
+  postgresdata:
