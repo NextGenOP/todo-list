@@ -1,65 +1,48 @@
-# Warning: This docker-compose file is made for development purposes.
-# Using it will build an image from the locally cloned repository.
-# todos is todo-list
-# If you want to use todos in production, see the docker-compose.yml file provided
+version: '3.9'
 
-version: "3.8"
 services:
-  todos-fe:
-    build:
-      context: ../todos-fe
-      dockerfile: docker/Dockerfile
-    restart: unless-stopped
+  postgresql-backend:
+    image: postgres:15.1-alpine
+    container_name: postgresql-backend
+    restart: always
     ports:
-      - "3050:3050"
-    #environment:
-    depends_on:
-      - todolist-db
-      - todos
-
-  todos:
-    build:
-      context: .
-      args:
-          DB_HOST_DATABASE: todolist-db
-          DB_PORT: 5432
-          DB_USER: todolist
-          DB_PASSWORD: todolist
-          DB_NAME: todolist
-      dockerfile: docker/Dockerfile
-    restart: unless-stopped
-    ports:
-      - "8050:8050"
+      - '5432:5432'
     environment:
-      # Please read the following file for a comprehensive list of all available
-      # configuration options and their associated syntax:
-      NODE_ENV: production
-      DB_HOST_DATABASE: todolist-db
-      DB_PORT: 5432
-      DB_USER: todolist
-      DB_PASSWORD: todolist
-      DB_NAME: todolist
-      JWT_SECRET_KEY: huhuhaha
-        #command: ["echo", "Database is $$DB_HOST_DATABASE"]
-    entrypoint: ./entrypoint.sh
-    depends_on:
-      - todolist-db
-    command: ["CMD-SHELL", "./wait-for-postgres.sh", "todolist-db"]
-
-  todolist-db:
-    image: docker.io/library/postgres:14-alpine
-    ports:
-      - "5432:5432"
-    restart: unless-stopped
+      - 'POSTGRES_USER=postgres' 
+      - 'POSTGRES_DB=todo-list'
+      - 'POSTGRES_PASSWORD=root'
     volumes:
       - postgresdata:/var/lib/postgresql/data
-    environment:
-      POSTGRES_DB: todolist
-      POSTGRES_USER: todolist
-      POSTGRES_PASSWORD: todolist
-    command: echo "PostgreSQL Build"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
 
-volumes:
-  postgresdata:
+  app-backend:
+    container_name: app-backend
+    build:
+      context: './backend'
+      dockerfile: Dockerfile
+    image: 'backend-todolist:1.0.0'
+    restart: always
+    depends_on:
+      postgresql-backend:
+        condition: service_healthy
+    ports:
+      - '8002:8002'
+    environment:
+      - 'DB_HOST_DATABASE=postgresql-backend'
+      - 'APP_PORT=8002'
+
+  app-frontend:
+    container_name: app-frontend
+    build:
+      context: './frontend'
+      dockerfile: Dockerfile
+    image: 'frontend-todolist:1.0.0'
+    restart: always
+    ports:
+      - '3000:3000'
+    environment:
+      - 'REACT_APP_NODE_ENV=development'
+      - 'REACT_APP_BASE_URL=http://127.0.0.1:8002/api/v1'
+    depends_on:
+      - app-backend
